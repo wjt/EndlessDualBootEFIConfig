@@ -87,7 +87,7 @@ retry:
 	Names = (PWCHAR) new BYTE[CharCount * sizeof(WCHAR)];
 
 	if (!Names) {
-		wprintf(L"Unable to allocate RAM for drive letter query\n");
+		uwprintf(L"Unable to allocate RAM for drive letter query\n");
 		return 1;
 	}
 	if (!GetVolumePathNamesForVolumeNameW(VolumeName, Names, CharCount, &CharCount)) {
@@ -98,12 +98,12 @@ retry:
 			Names = NULL;
 			goto retry;
 		}
-		wprintf(L"Unable to get volume path names: %d\n", error);
+		uwprintf(L"Unable to get volume path names: %d\n", error);
 		return 2;
 	}
 
 	for (NameIDX = Names; NameIDX[0] != L'\0'; NameIDX += wcslen(NameIDX) + 1) {
-		wprintf(L" (%s)", NameIDX);
+		uwprintf(L" (%s)", NameIDX);
 	}
 	return 0;
 }
@@ -127,12 +127,12 @@ int print_partition_info(GUID guid, ULONG mbr, DWORD partnum) {
 		drive_handle = CreateFile(VolumeName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH, 0);
 
 		if (!drive_handle || drive_handle == INVALID_HANDLE_VALUE) {
-			wprintf(L"Unable to open volume %s, error %d\n", VolumeName, GetLastError());
+			uwprintf(L"Unable to open volume %s, error %d\n", VolumeName, GetLastError());
 			goto next;
 		}
 
 		if (!DeviceIoControl(drive_handle, IOCTL_DISK_GET_DRIVE_LAYOUT_EX, 0, 0, &layout, sizeof(layout), &size, 0)) {
-			wprintf(L"Unable to get drive information on %s, %d\n", VolumeName, GetLastError());
+			uwprintf(L"Unable to get drive information on %s, %d\n", VolumeName, GetLastError());
 		}
 		else {
 			if (layout.PartitionStyle == PARTITION_STYLE_MBR) {
@@ -143,7 +143,7 @@ int print_partition_info(GUID guid, ULONG mbr, DWORD partnum) {
 		}
 
 		if (!DeviceIoControl(drive_handle, IOCTL_DISK_GET_PARTITION_INFO_EX, 0, 0, &partition, sizeof(partition), &size, 0)) {
-			wprintf(L"Unable to get partition information on %s, %d\n", VolumeName, GetLastError());
+			uwprintf(L"Unable to get partition information on %s, %d\n", VolumeName, GetLastError());
 			goto next;
 		}
 		if (partition.PartitionStyle == PARTITION_STYLE_GPT) {
@@ -167,7 +167,7 @@ int print_partition_info(GUID guid, ULONG mbr, DWORD partnum) {
 			break;
 		}
 	}
-	wprintf(L"(Drive not mounted)");
+	uwprintf(L"(Drive not mounted)");
 
 out:
 	FindVolumeClose(volume_handle);
@@ -185,17 +185,17 @@ int print_entries(void) {
 	size = GetFirmwareEnvironmentVariableW(L"BootOrder", UEFI_BOOT_NAMESPACE, vardata, sizeof(vardata));
 	if (size > 0) {
 		bootorder = (WORD *)vardata;
-		printf("BootOrder: ");
+		uprintf("BootOrder: ");
 		for (i = 0; i < (int)(size / 2); i++) {
-			printf(UEFI_BOOT_ENTRY_NUM_FORMAT " ", bootorder[i]);
+			uprintf(UEFI_BOOT_ENTRY_NUM_FORMAT " ", bootorder[i]);
 		}
-		printf("\n");
+		uprintf("\n");
 	}
 
 	size = GetFirmwareEnvironmentVariableW(L"BootNext", UEFI_BOOT_NAMESPACE, vardata, sizeof(vardata));
 	if (size > 0) {
 		WORD *bootnext = (WORD *)vardata;
-		printf("BootNext: " UEFI_BOOT_ENTRY_NUM_FORMAT "\n", *bootnext);
+		uprintf("BootNext: " UEFI_BOOT_ENTRY_NUM_FORMAT "\n", *bootnext);
 	}
 	for (i = 0; i <= 0xffff && countEmpty < 5; i++) {
 		EFI_HARD_DRIVE_PATH *hdpath;
@@ -208,7 +208,7 @@ int print_entries(void) {
 			int signature_type = -1;
 			wchar_t *description = (wchar_t *)&vardata[6];
 			EFI_DEVICE_PATH *devpath = (EFI_DEVICE_PATH *)&vardata[6 + wcslen(description) * 2 + 2];
-			printf("Boot" UEFI_BOOT_ENTRY_NUM_FORMAT ": %ls - ", i, description);
+			uprintf("Boot" UEFI_BOOT_ENTRY_NUM_FORMAT ": %ls - ", i, description);
 			while (devpath) {
 				switch (devpath->type) {
 				case 0x4: // Media device type
@@ -220,23 +220,23 @@ int print_entries(void) {
 						case 0x1:
 							partnum = hdpath->part_num;
 							mbr = hdpath->signature[0] | hdpath->signature[1] << 8 | hdpath->signature[2] << 16 | hdpath->signature[3] << 24;
-							printf("Partition %d {%08lX} ", partnum, mbr);
+							uprintf("Partition %d {%08lX} ", partnum, mbr);
 							break;
 						case 0x2:
 							memcpy(&guid, &hdpath->signature, sizeof(guid));
-							printf("Partition %d {%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX} ", hdpath->part_num,
+							uprintf("Partition %d {%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX} ", hdpath->part_num,
 								guid.Data1, guid.Data2, guid.Data3,
 								guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3],
 								guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]);
 							break;
 						default:
-							printf("Partition %d ", hdpath->part_num);
+							uprintf("Partition %d ", hdpath->part_num);
 							break;
 						}
 						break;
 					case 0x4:
 						wchar_t *filepath = (wchar_t *)((BYTE *)devpath + 4);
-						printf("Path %ls ", filepath);
+						uprintf("Path %ls ", filepath);
 						break;
 					}
 					break;
@@ -250,7 +250,7 @@ int print_entries(void) {
 						break;
 					}
 					devpath = NULL;
-					printf("\n");
+					uprintf("\n");
 					break;
 				}
 				if (devpath)
@@ -358,7 +358,7 @@ bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, wchar_t *desc) {
 
 	bool retResult = false;
 
-	printf("=== Current boot configuration ===\n");
+	uprintf("=== Current boot configuration ===\n");
 	print_entries();
 
 	target = EFIGetBootEntryNumber(desc, true);
@@ -441,13 +441,13 @@ bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, wchar_t *desc) {
 #if 0
 	for (i = 0; i<varsize; i++) {
 		BYTE *dummy = (BYTE *)load_option;
-		printf("%d %x %c\n", i, dummy[i] & 0xff, dummy[i] & 0xff);
+		uprintf("%d %x %c\n", i, dummy[i] & 0xff, dummy[i] & 0xff);
 	};
 #endif
 
 	/* And write it to firmware */
 	IFFALSE_GOTOERROR(SetFirmwareEnvironmentVariable(varname, UEFI_BOOT_NAMESPACE, load_option, varsize), "Error on SetFirmwareEnvironmentVariable");
-	printf("Created entry for %ls (%ls) at " UEFI_BOOT_ENTRY_NUM_FORMAT "\n", path, description, target);
+	uprintf("Created entry for %ls (%ls) at " UEFI_BOOT_ENTRY_NUM_FORMAT "\n", path, description, target);
 
 	/* Add our entry to the boot order */
 	size = GetFirmwareEnvironmentVariable(UEFI_VAR_BOOTORDER, UEFI_BOOT_NAMESPACE, vardata, sizeof(vardata));
@@ -473,7 +473,7 @@ bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, wchar_t *desc) {
 	bootorder[0] = target;
 	IFFALSE_GOTOERROR(SetFirmwareEnvironmentVariable(UEFI_VAR_BOOTORDER, UEFI_BOOT_NAMESPACE, vardata, size + extraBytes), "Error on SetFirmwareEnvironmentVariable");
 
-	printf("=== New boot configuration ===\n");
+	uprintf("=== New boot configuration ===\n");
 	print_entries();
 
 	retResult = true;
@@ -489,7 +489,7 @@ bool EFIRemoveEntry(wchar_t *desc, bool &found_entry) {
 	int target = -1;
 	bool result = true;
 
-	printf("=== Current boot configuration ===");
+	uprintf("=== Current boot configuration ===");
 	print_entries();
 
 	found_entry = false;
@@ -500,7 +500,7 @@ bool EFIRemoveEntry(wchar_t *desc, bool &found_entry) {
 	swprintf(varname, sizeof(varname), UEFI_VAR_BOOT_ENTRY_FORMAT, target);
 	/* Writing a zero length variable deletes it */
 	if (!SetFirmwareEnvironmentVariable(varname, UEFI_BOOT_NAMESPACE, NULL, 0)) {
-		printf("Error on SetFirmwareEnvironmentVariable");
+		uprintf("Error on SetFirmwareEnvironmentVariable");
 		result = false;
 	}
 
@@ -528,10 +528,10 @@ bool EFIRemoveEntry(wchar_t *desc, bool &found_entry) {
 		}
 		IFFALSE_RETURN_VALUE(SetFirmwareEnvironmentVariable(UEFI_VAR_BOOTORDER, UEFI_BOOT_NAMESPACE, vardata, size - 2), "Error on SetFirmwareEnvironmentVariable", false);
 	} else {
-		printf("Our EFI entry %ls was not found in BootOrder list", varname);
+		uprintf("Our EFI entry %ls was not found in BootOrder list", varname);
 	}
 
-	printf("=== New boot configuration ===");
+	uprintf("=== New boot configuration ===");
 	print_entries();
 
 	return result;

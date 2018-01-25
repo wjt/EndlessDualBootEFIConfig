@@ -19,6 +19,7 @@
 
 #include "stdafx.h"
 #include "drive.h"
+#include "GeneralCode.h"
 
 
 #define safe_free(p) do {free((void*)p); p = NULL;} while(0)
@@ -53,7 +54,7 @@
 */
 #define CheckDriveIndex(DriveIndex) do { \
 	if ((DriveIndex < DRIVE_INDEX_MIN) || (DriveIndex > DRIVE_INDEX_MAX)) { \
-		printf("ERROR: Bad index value. Please check the code!\n"); \
+		uprintf("ERROR: Bad index value. Please check the code!\n"); \
 		goto out; \
 	} \
 	DriveIndex -= DRIVE_INDEX_MIN; } while (0)
@@ -74,27 +75,27 @@ static HANDLE GetHandle(char* Path, BOOL bWriteAccess, BOOL bLockDrive)
 	hDrive = CreateFileA(Path, GENERIC_READ | (bWriteAccess ? GENERIC_WRITE : 0),
 		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hDrive == INVALID_HANDLE_VALUE) {
-		printf("Could not open drive %s: %d\n", Path, GetLastError());
+		uprintf("Could not open drive %s: %d\n", Path, GetLastError());
 		goto out;
 	}
 
 	if (bWriteAccess) {
-		printf("Opened drive %s for write access\n", Path);
+		uprintf("Opened drive %s for write access\n", Path);
 	}
 
 	if (bLockDrive) {
 		if (DeviceIoControl(hDrive, FSCTL_ALLOW_EXTENDED_DASD_IO, NULL, 0, NULL, 0, &size, NULL)) {
-			printf("I/O boundary checks disabled\n");
+			uprintf("I/O boundary checks disabled\n");
 		}
 
 		for (i = 0; i < DRIVE_ACCESS_RETRIES; i++) {
-			printf("Attempting FSCTL_LOCK_VOLUME for drive %s\n", Path);
+			uprintf("Attempting FSCTL_LOCK_VOLUME for drive %s\n", Path);
 			if (DeviceIoControl(hDrive, FSCTL_LOCK_VOLUME, NULL, 0, NULL, 0, &size, NULL))
 				goto out;
 			Sleep(DRIVE_ACCESS_TIMEOUT / DRIVE_ACCESS_RETRIES);
 		}
 		// If we reached this section, either we didn't manage to get a lock or the user cancelled
-		printf("Could not get exclusive access to device %s: %d\n", Path, GetLastError());
+		uprintf("Could not get exclusive access to device %s: %d\n", Path, GetLastError());
 		safe_closehandle(hDrive);
 	}
 
@@ -135,20 +136,20 @@ int GetDriveNumber(HANDLE hDrive, char* path)
 		// DiskExtents are NO_GO (which is the case for external USB HDDs...)
 		if (!DeviceIoControl(hDrive, IOCTL_STORAGE_GET_DEVICE_NUMBER, NULL, 0,
 			&DeviceNumber, sizeof(DeviceNumber), &size, NULL) || (size <= 0)) {
-			printf("Could not get device number for device %s: %d\n", path, GetLastError());
+			uprintf("Could not get device number for device %s: %d\n", path, GetLastError());
 			return -1;
 		}
 		r = (int)DeviceNumber.DeviceNumber;
 	}
 	else if (DiskExtents.NumberOfDiskExtents >= 2) {
-		printf("Ignoring drive '%s' as it spans multiple disks (RAID?)\n", path);
+		uprintf("Ignoring drive '%s' as it spans multiple disks (RAID?)\n", path);
 		return -1;
 	}
 	else {
 		r = (int)DiskExtents.Extents[0].DiskNumber;
 	}
 	if (r >= MAX_DRIVES) {
-		printf("Device Number for device %s is too big (%d) - ignoring device\n", path, r);
+		uprintf("Device Number for device %s is too big (%d) - ignoring device\n", path, r);
 		return -1;
 	}
 	return r;
@@ -177,11 +178,11 @@ char GetUnusedDriveLetter(void)
 
 	size = GetLogicalDriveStringsA(sizeof(drives), drives);
 	if (size == 0) {
-		printf("GetLogicalDriveStrings failed: %d\n", GetLastError());
+		uprintf("GetLogicalDriveStrings failed: %d\n", GetLastError());
 		goto out;
 	}
 	if (size > sizeof(drives)) {
-		printf("GetLogicalDriveStrings: Buffer too small (required %d vs. %d)\n", size, sizeof(drives));
+		uprintf("GetLogicalDriveStrings: Buffer too small (required %d vs. %d)\n", size, sizeof(drives));
 		goto out;
 	}
 
@@ -223,14 +224,14 @@ char* AltMountVolume(const char* drive_name, uint8_t part_nr)
 
 	mounted_drive[0] = GetUnusedDriveLetter();
 	if (mounted_drive[0] == 0) {
-		printf("Could not find an unused drive letter\n");
+		uprintf("Could not find an unused drive letter\n");
 		goto out;
 	}
 
 	target[0][0] = 0;
 	// Convert our drive letter to something like "\Device\HarddiskVolume9"
 	if (!QueryDosDeviceA(drive_name, target[0], MAX_PATH) || (strlen(target[0]) == 0)) {
-		printf("Could not get the DOS volume name for '%s': %d\n", drive_name, GetLastError());
+		uprintf("Could not get the DOS volume name for '%s': %d\n", drive_name, GetLastError());
 		goto out;
 	}
 
@@ -242,7 +243,7 @@ char* AltMountVolume(const char* drive_name, uint8_t part_nr)
 
 	buffer[0] = 0;
 	if (!QueryDosDeviceA(NULL, buffer, bufsize)) {
-		printf("Could not get the DOS device list: %d\n", GetLastError());
+		uprintf("Could not get the DOS device list: %d\n", GetLastError());
 		goto out;
 	}
 
@@ -259,7 +260,7 @@ char* AltMountVolume(const char* drive_name, uint8_t part_nr)
 
 	i = strlen(p);
 	if (i == 0) {
-		printf("Could not find partition mapping for %s\n", target[0]);
+		uprintf("Could not find partition mapping for %s\n", target[0]);
 		goto out;
 	}
 
@@ -269,16 +270,16 @@ char* AltMountVolume(const char* drive_name, uint8_t part_nr)
 
 	target[0][0] = 0;
 	if (!QueryDosDeviceA(p, target[0], MAX_PATH) || (strlen(target[0]) == 0)) {
-		printf("Could not find the DOS volume name for partition '%s': %d\n", p, GetLastError());
+		uprintf("Could not find the DOS volume name for partition '%s': %d\n", p, GetLastError());
 		goto out;
 	}
 
 	if (!DefineDosDeviceA(DDD_RAW_TARGET_PATH | DDD_NO_BROADCAST_SYSTEM, mounted_drive, target[0])) {
-		printf("Could not mount '%s' to '%s': %d\n", target[0], mounted_drive, GetLastError());
+		uprintf("Could not mount '%s' to '%s': %d\n", target[0], mounted_drive, GetLastError());
 		goto out;
 	}
 
-	printf("Successfully mounted '%s' (USB partition %d) as '%s'\n", target[0], part_nr, mounted_drive);
+	uprintf("Successfully mounted '%s' (USB partition %d) as '%s'\n", target[0], part_nr, mounted_drive);
 	ret = mounted_drive;
 
 out:
@@ -294,9 +295,9 @@ BOOL AltUnmountVolume(const char* drive_name)
 	if (drive_name == NULL)
 		return FALSE;
 	if (!DefineDosDeviceA(DDD_REMOVE_DEFINITION | DDD_NO_BROADCAST_SYSTEM, drive_name, NULL)) {
-		printf("Could not unmount '%s': %d\n", drive_name, GetLastError());
+		uprintf("Could not unmount '%s': %d\n", drive_name, GetLastError());
 		return FALSE;
 	}
-	printf("Successfully unmounted '%s'\n", drive_name);
+	uprintf("Successfully unmounted '%s'\n", drive_name);
 	return TRUE;
 }

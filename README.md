@@ -9,15 +9,11 @@ It performs the following actions:
 * Creates a new `BootXXXX` variable pointing to `\EFI\EndlessTest\shim.efi`, and prepends it to `BootOrder`
 * Prints `BootOrder` and `BootXXXX` again
 
+(All output is written to the console, and to a dated log file in the same directory as the executable.)
+
 At this point, rebooting your system should give you a GRUB menu with two options:
 
 * Microsoft Windows (which boots Windows when selected)
 * It worked (which shows a brief message when selected)
 
-If the system boots straight to Windows, our boot order manipulation has not worked. It may be interesting to run the script a second time in this case, to see the post-reboot contents of `BootOrder` and `BootXXXX`.
-
-The best way I have found to capture its output is to run it in Windows PowerShell like this:
-
-```
-.\EndlessDualBootEFIConfig.exe | tee output.txt -Append
-```
+If the system boots straight to Windows, our boot order manipulation has not worked. It may be interesting to run this application a second time in this case, to see the post-reboot contents of `BootOrder` and `BootXXXX`.

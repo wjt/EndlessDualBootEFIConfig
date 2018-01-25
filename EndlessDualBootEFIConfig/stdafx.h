@@ -12,3 +12,4 @@
 #include <windows.h>
 #include <stdint.h>
 #include <atlstr.h>
+#include <atltime.h>
