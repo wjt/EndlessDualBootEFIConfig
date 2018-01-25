@@ -1,4 +1,4 @@
-This is a standalone version of the EFI boot order manipulation code from [the Endless Installer for Windows](https://github.com/endlessm/rufus), intended for debugging problems on certain systems. It is intended to be run from a command prompt as an administrator, on a system which **does not have Endless OS installed**. It must be placed in the same directory as the files in `data/` in this repository.
+This is a standalone version of the EFI boot order manipulation code from [the Endless Installer for Windows](https://github.com/endlessm/rufus), intended for debugging problems on certain systems. It is intended to be run from a command prompt as an administrator, on a system which **does not have Endless OS installed**. It must be placed in the same directory as the files in `data/` in this repository. The zip file in this repository contains the compiled executable and these data files.
 
 It performs the following actions:
 
