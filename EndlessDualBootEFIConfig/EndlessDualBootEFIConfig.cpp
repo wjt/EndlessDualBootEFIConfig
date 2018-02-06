@@ -98,15 +98,57 @@ EnsureDirectoryW(LPCWSTR lpPathName)
 
 FILE *logFile = NULL;
 
-int main()
+static wchar_t wszEspMountLetter[4] = { 0 };
+static const char *szEspMountLetter = NULL;
+static const wchar_t *wszDesc = L"Endless Bootloader Installation Test";
+
+static bool MountESP()
 {
+	bool ret = false;
+	HANDLE hPhysical = INVALID_HANDLE_VALUE;
+
+	uprintf("== Mounting ESP\n");
+
+	hPhysical = GetPhysicalFromDriveLetter("\\\\.\\C:");
+	IFFALSE_GOTOERROR(hPhysical != INVALID_HANDLE_VALUE, "Couldn't get handle");
+	IFFALSE_GOTOERROR(MountESPFromDrive(hPhysical, &szEspMountLetter), "Mounting ESP failed");
+	IFFALSE_GOTOERROR(MultiByteToWideChar(CP_UTF8, 0, szEspMountLetter, -1, wszEspMountLetter, 4), "Widening ESP drive letter failed");
+
+	ret = true;
+error:
+	safe_closehandle(hPhysical);
+	return ret;
+}
+
+enum Mode {
+	INVALID,
+	NORMAL,
+	UNINSTALL,
+};
+
+Mode GetMode(int argc, char **argv)
+{
+	if (argc == 1) {
+		return Mode::NORMAL;
+	}
+
+	CStringA flag = argv[1];
+	if (flag == "/uninstall") {
+		return Mode::UNINSTALL;
+	}
+
+	uprintf("Invalid argument %s\n", argv[1]);
+	return Mode::INVALID;
+}
+
+int main(int argc, char **argv)
+{
+	Mode mode;
 	CTime time = CTime::GetCurrentTime();
 	wchar_t wszPathToSelf[MAX_PATH];
 	CStringW logFilePath;
 	CStringW grubCfgPath;
-	HANDLE hPhysical = INVALID_HANDLE_VALUE;
-	const char *szEspMountLetter = NULL;
-	wchar_t wszEspMountLetter[4] = { 0 };
+	CStringW grubCfgTarget = L"C:\\endless\\grub\\grub.cfg";
 	CString wszEspSubdir(L"?:\\EFI\\EndlessTest");
 	CString wszShimPath;
 	errno_t ret_errno = 0;
@@ -120,37 +162,46 @@ int main()
 	logFilePath.Format(L"%ls\\EndlessDualBootEFIConfig.%ls.txt",
 		wszPathToSelf, time.FormatGmt(L"%Y%m%d_%H%M%S"));
 	if (0 != (ret_errno = _wfopen_s(&logFile, logFilePath, L"a"))) {
-		uprintf("Couldn't open log file %ls: %d\n", logFilePath, ret_errno);
+		uprintf("Couldn't open log file %ls: %d\n", logFilePath.GetBuffer(), ret_errno);
+	}
+
+	if ((mode = GetMode(argc, argv)) == Mode::INVALID) {
+		goto error;
 	}
 
 	IFFALSE_GOTOERROR(EFIRequireNeededPrivileges(), "Failed to get privileges needed to manipulate EFI variables");
 
-	grubCfgPath = CStringW(wszPathToSelf) + L"grub.cfg";
-	uprintf("== Installing stub GRUB config to %ls\n", grubCfgPath.GetBuffer());
-	IFFALSE_GOTOERROR(EnsureDirectoryW(L"C:\\endless"), "");
-	IFFALSE_GOTOERROR(EnsureDirectoryW(L"C:\\endless\\grub"), "");
-	IFFALSE_GOTOERROR(CopyFileW(grubCfgPath, L"C:\\endless\\grub\\grub.cfg", FALSE), "Copying grub.cfg failed");
+	if (mode == Mode::UNINSTALL) {
+		uprintf("== Removing BootXXXX from BootOrder\n");
+		bool found_entry = false;
+		IFFALSE_GOTOERROR(EFIRemoveEntry(wszDesc, found_entry), "Couldn't remove boot entry");
+		IFFALSE_GOTOERROR(found_entry, "Boot entry wasn't found");
 
-	uprintf("== Mounting ESP\n");
+		// Sorry, I am too lazy to remove C:\endless\grub\grub.cfg and the loader executables from the ESP
+	} else {
+		grubCfgPath = CStringW(wszPathToSelf) + L"grub.cfg";
 
-	hPhysical = GetPhysicalFromDriveLetter("\\\\.\\C:");
-	IFFALSE_GOTOERROR(hPhysical != INVALID_HANDLE_VALUE, "Couldn't get handle");
-	IFFALSE_GOTOERROR(MountESPFromDrive(hPhysical, &szEspMountLetter), "Mounting ESP failed");
+		uprintf("== Installing stub GRUB config to %ls\n", grubCfgTarget.GetBuffer());
+		IFFALSE_GOTOERROR(EnsureDirectoryW(L"C:\\endless"), "");
+		IFFALSE_GOTOERROR(EnsureDirectoryW(L"C:\\endless\\grub"), "");
+		IFFALSE_GOTOERROR(CopyFileW(grubCfgPath, grubCfgTarget, FALSE), "Copying grub.cfg failed");
 
-	IFFALSE_GOTOERROR(MultiByteToWideChar(CP_UTF8, 0, szEspMountLetter, -1, wszEspMountLetter, 4), "Widening ESP drive letter failed");
-	wszEspSubdir.SetAt(0, wszEspMountLetter[0]);
-	wszShimPath = wszEspSubdir + L"\\shim.efi";
+		IFFALSE_GOTOERROR(MountESP(), "Mounting ESP failed");
 
-	uprintf("== Mounted ESP at %ls\n", wszEspMountLetter);
-	uprintf("== Copying bootloaders to %ls\n", wszEspSubdir.GetBuffer());
+		wszEspSubdir.SetAt(0, wszEspMountLetter[0]);
+		wszShimPath = wszEspSubdir + L"\\shim.efi";
 
-	IFFALSE_GOTOERROR(EnsureDirectoryW(wszEspSubdir), "Creating subdirectory in ESP failed");
-	IFFALSE_GOTOERROR(CopyFileW(CStringW(wszPathToSelf) + L"shim.efi", wszShimPath, FALSE), "Copying Shim failed");
-	IFFALSE_GOTOERROR(CopyFileW(CStringW(wszPathToSelf) + L"grubx64.efi", wszEspSubdir + L"\\grubx64.efi", FALSE), "Copying GRUB failed");
+		uprintf("== Mounted ESP at %ls\n", wszEspMountLetter);
+		uprintf("== Copying bootloaders to %ls\n", wszEspSubdir.GetBuffer());
 
-	uprintf("== Adding EFI boot entry for %ls\n", wszShimPath.GetBuffer());
+		IFFALSE_GOTOERROR(EnsureDirectoryW(wszEspSubdir), "Creating subdirectory in ESP failed");
+		IFFALSE_GOTOERROR(CopyFileW(CStringW(wszPathToSelf) + L"shim.efi", wszShimPath, FALSE), "Copying Shim failed");
+		IFFALSE_GOTOERROR(CopyFileW(CStringW(wszPathToSelf) + L"grubx64.efi", wszEspSubdir + L"\\grubx64.efi", FALSE), "Copying GRUB failed");
 
-	IFFALSE_GOTOERROR(EFICreateNewEntry(wszEspMountLetter, wszShimPath.Mid(2).GetBuffer(), L"Endless Bootloader Installation Test"), "Couldn't add boot entry");
+		uprintf("== Adding EFI boot entry for %ls\n", wszShimPath.GetBuffer());
+
+		IFFALSE_GOTOERROR(EFICreateNewEntry(wszEspMountLetter, wszShimPath.Mid(2).GetBuffer(), wszDesc), "Couldn't add boot entry");
+	}
 
 	ret = 0;
 

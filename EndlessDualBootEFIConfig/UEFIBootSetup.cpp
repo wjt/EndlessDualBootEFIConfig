@@ -328,7 +328,7 @@ int EFIGetBootEntryNumber(const wchar_t *desc, bool createNewEntry) {
 	return -1;
 }
 
-bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, wchar_t *desc) {
+bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, const wchar_t *desc) {
 	FUNCTION_ENTER;
 
 	int i;
@@ -482,14 +482,14 @@ error:
 	return retResult;
 }
 
-bool EFIRemoveEntry(wchar_t *desc, bool &found_entry) {
+bool EFIRemoveEntry(const wchar_t *desc, bool &found_entry) {
 	FUNCTION_ENTER;
 
 	wchar_t varname[9];
 	int target = -1;
 	bool result = true;
 
-	uprintf("=== Current boot configuration ===");
+	uprintf("=== Current boot configuration ===\n");
 	print_entries();
 
 	found_entry = false;
@@ -500,7 +500,7 @@ bool EFIRemoveEntry(wchar_t *desc, bool &found_entry) {
 	swprintf(varname, sizeof(varname), UEFI_VAR_BOOT_ENTRY_FORMAT, target);
 	/* Writing a zero length variable deletes it */
 	if (!SetFirmwareEnvironmentVariable(varname, UEFI_BOOT_NAMESPACE, NULL, 0)) {
-		uprintf("Error on SetFirmwareEnvironmentVariable");
+		uprintf("Error on SetFirmwareEnvironmentVariable\n");
 		result = false;
 	}
 
@@ -531,7 +531,7 @@ bool EFIRemoveEntry(wchar_t *desc, bool &found_entry) {
 		uprintf("Our EFI entry %ls was not found in BootOrder list", varname);
 	}
 
-	uprintf("=== New boot configuration ===");
+	uprintf("=== New boot configuration ===\n");
 	print_entries();
 
 	return result;
