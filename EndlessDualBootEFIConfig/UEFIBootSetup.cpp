@@ -472,6 +472,27 @@ bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, const wchar_t *desc,
 		bootorder[i] = bootorder[i - 1];
 	}
 	bootorder[0] = target;
+
+	if (flags & UEFIBootSetupFlags::ReplaceWindowsEntry) {
+		const wchar_t *wszWBM = L"Windows Boot Manager";
+		int windowsBootNum = EFIGetBootEntryNumber(wszWBM, false);
+		if (windowsBootNum == -1) {
+			uprintf("Couldn't find %ls entry\n", wszWBM);
+		}
+		else {
+			for (i = 0; i < (int)((size + extraBytes) / 2); i++) {
+				uprintf("BootOrder[%d] == " UEFI_BOOT_ENTRY_NUM_FORMAT "\n", i, bootorder[i]);
+				if (bootorder[i] == windowsBootNum) {
+					uprintf("Removing %ls entry " UEFI_BOOT_ENTRY_NUM_FORMAT " at position %d", wszWBM, windowsBootNum, i);
+					for (int j = i; j < (position + extraBytes) / 2 - 1; j++) {
+						bootorder[j] = bootorder[j + 1];
+					}
+					extraBytes -= 2;
+				}
+			}
+		}
+	}
+
 	IFFALSE_GOTOERROR(SetFirmwareEnvironmentVariable(UEFI_VAR_BOOTORDER, UEFI_BOOT_NAMESPACE, vardata, size + extraBytes), "Error on SetFirmwareEnvironmentVariable");
 
 	if (flags & UEFIBootSetupFlags::SetBootNext) {

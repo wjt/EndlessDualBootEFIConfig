@@ -128,6 +128,8 @@ enum Mode {
 
 Mode GetMode(int argc, char **argv, int &flags)
 {
+	flags = 0;
+
 	for (int i = 1; i < argc; i++) {
 		CStringA flag = argv[i];
 		flag.MakeLower();
@@ -152,7 +154,7 @@ Mode GetMode(int argc, char **argv, int &flags)
 int main(int argc, char **argv)
 {
 	Mode mode;
-	int flags;
+	int flags = 0;
 	CTime time = CTime::GetCurrentTime();
 	wchar_t wszPathToSelf[MAX_PATH];
 	CStringW logFilePath;
