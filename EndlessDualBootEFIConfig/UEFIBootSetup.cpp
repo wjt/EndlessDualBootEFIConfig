@@ -71,6 +71,7 @@ struct ExtraEntries : DRIVE_LAYOUT_INFORMATION_EX
 #define UEFI_BOOT_NAMESPACE			L"{8BE4DF61-93CA-11d2-AA0D-00E098032B8C}"
 
 #define UEFI_VAR_BOOTORDER			L"BootOrder"
+#define UEFI_VAR_BOOTNEXT			L"BootNext"
 #define UEFI_BOOT_ENTRY_NUM_FORMAT	"%04X"
 #define UEFI_VAR_BOOT_ENTRY_FORMAT	L"Boot" _T(UEFI_BOOT_ENTRY_NUM_FORMAT)
 
@@ -328,7 +329,7 @@ int EFIGetBootEntryNumber(const wchar_t *desc, bool createNewEntry) {
 	return -1;
 }
 
-bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, const wchar_t *desc) {
+bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, const wchar_t *desc, int flags) {
 	FUNCTION_ENTER;
 
 	int i;
@@ -472,6 +473,11 @@ bool EFICreateNewEntry(const wchar_t *drive, wchar_t *path, const wchar_t *desc)
 	}
 	bootorder[0] = target;
 	IFFALSE_GOTOERROR(SetFirmwareEnvironmentVariable(UEFI_VAR_BOOTORDER, UEFI_BOOT_NAMESPACE, vardata, size + extraBytes), "Error on SetFirmwareEnvironmentVariable");
+
+	if (flags & UEFIBootSetupFlags::SetBootNext) {
+		// We can reuse bootorder since our entry is at the start
+		IFFALSE_PRINTERROR(SetFirmwareEnvironmentVariable(UEFI_VAR_BOOTNEXT, UEFI_BOOT_NAMESPACE, bootorder, 2), "Error on SFEV(BootNext)");
+	}
 
 	uprintf("=== New boot configuration ===\n");
 	print_entries();

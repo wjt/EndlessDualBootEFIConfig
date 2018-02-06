@@ -122,28 +122,37 @@ error:
 
 enum Mode {
 	INVALID,
-	NORMAL,
+	INSTALL,
 	UNINSTALL,
 };
 
-Mode GetMode(int argc, char **argv)
+Mode GetMode(int argc, char **argv, int &flags)
 {
-	if (argc == 1) {
-		return Mode::NORMAL;
+	for (int i = 1; i < argc; i++) {
+		CStringA flag = argv[i];
+		flag.MakeLower();
+
+		if (flag == "/uninstall") {
+			return Mode::UNINSTALL;
+		} else if (flag == "/setbootnext") {
+			flags |= UEFIBootSetupFlags::SetBootNext;
+		}
+		else if (flag == "/replacewindowsentry") {
+			flags |= UEFIBootSetupFlags::ReplaceWindowsEntry;
+		}
+		else {
+			uprintf("Invalid argument %s\n", argv[1]);
+			return Mode::INVALID;
+		}
 	}
 
-	CStringA flag = argv[1];
-	if (flag == "/uninstall") {
-		return Mode::UNINSTALL;
-	}
-
-	uprintf("Invalid argument %s\n", argv[1]);
-	return Mode::INVALID;
+	return Mode::INSTALL;
 }
 
 int main(int argc, char **argv)
 {
 	Mode mode;
+	int flags;
 	CTime time = CTime::GetCurrentTime();
 	wchar_t wszPathToSelf[MAX_PATH];
 	CStringW logFilePath;
@@ -165,7 +174,7 @@ int main(int argc, char **argv)
 		uprintf("Couldn't open log file %ls: %d\n", logFilePath.GetBuffer(), ret_errno);
 	}
 
-	if ((mode = GetMode(argc, argv)) == Mode::INVALID) {
+	if ((mode = GetMode(argc, argv, flags)) == Mode::INVALID) {
 		goto error;
 	}
 
@@ -200,7 +209,7 @@ int main(int argc, char **argv)
 
 		uprintf("== Adding EFI boot entry for %ls\n", wszShimPath.GetBuffer());
 
-		IFFALSE_GOTOERROR(EFICreateNewEntry(wszEspMountLetter, wszShimPath.Mid(2).GetBuffer(), wszDesc), "Couldn't add boot entry");
+		IFFALSE_GOTOERROR(EFICreateNewEntry(wszEspMountLetter, wszShimPath.Mid(2).GetBuffer(), wszDesc, flags), "Couldn't add boot entry");
 	}
 
 	ret = 0;
