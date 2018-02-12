@@ -223,6 +223,12 @@ int main(int argc, char **argv)
 	ret = 0;
 
 error:
+	if (ret == 0) {
+		uprintf("== Success. Please reboot and see if GRUB appears\n");
+	} else {
+		uprintf("== Failed to install the test bootloader due to the errors above.\n");
+	}
+
 	if (szEspMountLetter != NULL) {
 		IFFALSE_PRINTERROR(AltUnmountVolume(szEspMountLetter), "Unmounting ESP failed");
 	}
