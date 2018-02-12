@@ -160,6 +160,7 @@ int main(int argc, char **argv)
 	CStringW logFilePath;
 	CStringW grubCfgPath;
 	CStringW grubCfgTarget = L"C:\\endless\\grub\\grub.cfg";
+	CStringW endlessImgPath = L"C:\\endless\\endless.img";
 	CString wszEspSubdir(L"?:\\EFI\\EndlessTest");
 	CString wszShimPath;
 	errno_t ret_errno = 0;
@@ -177,6 +178,11 @@ int main(int argc, char **argv)
 	}
 
 	if ((mode = GetMode(argc, argv, flags)) == Mode::INVALID) {
+		goto error;
+	}
+
+	if (PathFileExists(endlessImgPath)) {
+		uprintf("Endless OS is already installed on this computer. Uninstall it before running this tool.\n");
 		goto error;
 	}
 
